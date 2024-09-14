@@ -293,6 +293,9 @@
     <Compile Include="Pages\CreateAdminProjPage.xaml.cs">
       <DependentUpon>CreateAdminProjPage.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Pages\DailyUserPlanHoursAndMates.xaml.cs">
+      <DependentUpon>DailyUserPlanHoursAndMates.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Pages\MainMenuAdminPage.xaml.cs">
       <DependentUpon>MainMenuAdminPage.xaml</DependentUpon>
     </Compile>
@@ -322,6 +325,10 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Pages\CreateAdminProjPage.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Pages\DailyUserPlanHoursAndMates.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

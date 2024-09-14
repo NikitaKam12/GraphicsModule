@@ -63,7 +63,7 @@
 
         <DockPanel>
             <StackPanel Orientation="Vertical" HorizontalAlignment="Left" DockPanel.Dock="Left" Margin="15,15,0,0" Height="350">
-                <Button x:Name="Butn1menu" Click="Go_Check_Plan">График и календарь предстоящих проектов</Button>
+                <Button x:Name="Butn1menu" Click="Go_Check_Plan">График выполнения на день</Button>
                 <Button x:Name="Butn2menu" Click="Go_Check_Mates_And_Plan">График выполнения с командой</Button>
             </StackPanel>
         </DockPanel>

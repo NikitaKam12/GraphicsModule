@@ -33,7 +33,7 @@ namespace GraphicsModule.Pages
 
         private void Go_Check_Plan(object sender, RoutedEventArgs e)
         {
-
+            NavigationService.Navigate(new DailyUserPlanHoursAndMates());
         }
         private void Go_Back(object sender, RoutedEventArgs e)
         {

@@ -1,0 +1,90 @@
+﻿<Page x:Class="GraphicsModule.Pages.DailyUserPlanHoursAndMates"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:oxy="http://oxyplot.org/wpf"
+      Title="DailyUserPlanHoursAndMates"
+      Background="{DynamicResource BackgroundGradient}">
+
+    <Page.Resources>
+        <!-- Градиент для фона страницы -->
+        <LinearGradientBrush x:Key="BackgroundGradient" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#3b5998" Offset="0.0" />
+            <GradientStop Color="#8b9dc3" Offset="1.0" />
+        </LinearGradientBrush>
+
+        <!-- Стиль для текстовых блоков -->
+        <Style TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="HorizontalAlignment" Value="Left"/>
+            <Setter Property="Margin" Value="0,5,0,2"/>
+        </Style>
+
+        <!-- Стиль для кнопок -->
+        <Style TargetType="Button">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="#4CAF50"/>
+            <Setter Property="Width" Value="150"/>
+            <Setter Property="Height" Value="35"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="Black" BlurRadius="6" ShadowDepth="2" />
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#45a049"/>
+                    <Setter Property="Effect">
+                        <Setter.Value>
+                            <DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="4" />
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Page.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Кнопка "Назад" -->
+        <Button Content="Назад" Click="Go_Back"
+                HorizontalAlignment="Left" VerticalAlignment="Top"
+                Width="120" Height="30" Margin="10,10,0,0"
+                Background="#FF3B3B" Foreground="White" FontSize="12"/>
+
+        <!-- Список рабочих проектов на день -->
+        <StackPanel Grid.Row="1" Grid.Column="0" Margin="10" Orientation="Vertical">
+            <TextBlock Text="Рабочий график на день:"/>
+            <ItemsControl x:Name="TeamList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Vertical">
+                            <TextBlock Text="{Binding UserName}" Foreground="White"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+
+        <!-- OxyPlot для рабочего графика пользователя -->
+        <oxy:PlotView x:Name="DailySchedulePlot" Grid.Row="1" Grid.Column="1" Model="{Binding PlotModel}" />
+    </Grid>
+</Page>
