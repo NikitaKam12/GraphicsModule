@@ -6,50 +6,20 @@
       Background="{DynamicResource BackgroundGradient}">
 
     <Page.Resources>
-        <!-- Градиент для фона страницы -->
         <LinearGradientBrush x:Key="BackgroundGradient" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Color="#3b5998" Offset="0.0" />
             <GradientStop Color="#8b9dc3" Offset="1.0" />
         </LinearGradientBrush>
 
-        <!-- Стиль для текстовых блоков -->
         <Style TargetType="TextBlock">
             <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Foreground" Value="White"/>
-            <Setter Property="HorizontalAlignment" Value="Left"/>
-            <Setter Property="Margin" Value="0,5,0,2"/>
         </Style>
 
-        <!-- Стиль для кнопок -->
         <Style TargetType="Button">
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Background" Value="#4CAF50"/>
-            <Setter Property="Width" Value="150"/>
-            <Setter Property="Height" Value="35"/>
-            <Setter Property="Margin" Value="5"/>
-            <Setter Property="Padding" Value="5"/>
-            <Setter Property="HorizontalAlignment" Value="Center"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Effect">
-                <Setter.Value>
-                    <DropShadowEffect Color="Black" BlurRadius="6" ShadowDepth="2" />
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#45a049"/>
-                    <Setter Property="Effect">
-                        <Setter.Value>
-                            <DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="4" />
-                        </Setter.Value>
-                    </Setter>
-                </Trigger>
-            </Style.Triggers>
         </Style>
     </Page.Resources>
 
@@ -61,40 +31,46 @@
 
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="300"/>
-            <!-- Колонка для списка команд -->
             <ColumnDefinition Width="200"/>
-            <!-- Колонка для названия компании -->
             <ColumnDefinition Width="*"/>
-            <!-- Колонка для графиков -->
         </Grid.ColumnDefinitions>
 
-        <!-- Кнопка "Назад" слева сверху -->
-        <Button Content="Назад" Click="Go_Back"
-                HorizontalAlignment="Left" VerticalAlignment="Top"
-                Width="120" Height="30" Margin="10,10,0,0"
-                Background="#FF3B3B" Foreground="White" FontSize="12"/>
+        <Button Content="Назад" Click="Go_Back" Width="120" Height="30" Margin="10,10,0,0"/>
 
-        <!-- Список команд проектов -->
-        <StackPanel Grid.Row="1" Grid.Column="0" Margin="10" Orientation="Vertical">
+        <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal">
+            <TextBlock Text="Сортировка:" Margin="5"/>
+            <ComboBox x:Name="SortByCompany" Width="150" Margin="5"
+                      ItemsSource="{Binding Companies}"
+                      SelectedItem="{Binding SelectedCompany, Mode=TwoWay}"
+                      SelectionChanged="SortByCompany_SelectionChanged"/>
+            <ComboBox x:Name="SortByMonth" Width="150" Margin="5"
+                      ItemsSource="{Binding Months}"
+                      SelectedItem="{Binding SelectedMonth, Mode=TwoWay}"
+                      SelectionChanged="SortByMonth_SelectionChanged"/>
+            <ComboBox x:Name="SortByYear" Width="150" Margin="5"
+                      ItemsSource="{Binding Years}"
+                      SelectedItem="{Binding SelectedYear, Mode=TwoWay}"
+                      SelectionChanged="SortByYear_SelectionChanged"/>
+            <Button Content="Сбросить сортировку" Width="150" Margin="5"
+            Click="ResetFilters_Click" Background="#FF3B3B" Foreground="White"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Grid.Column="0" Margin="10">
             <TextBlock Text="Команды проектов:"/>
             <ItemsControl x:Name="TeamList">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <StackPanel Orientation="Vertical">
-                            <TextBlock Text="{Binding UserName}" Foreground="White"/>
-                        </StackPanel>
+                        <TextBlock Text="{Binding UserName}" Foreground="White"/>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </StackPanel>
 
-        <!-- Название компании -->
-        <StackPanel Grid.Row="1" Grid.Column="1" Margin="10" Orientation="Vertical">
+        <StackPanel Grid.Row="1" Grid.Column="1" Margin="10">
             <TextBlock Text="Название компании:"/>
             <TextBlock x:Name="CompanyName" />
         </StackPanel>
 
-        <!-- График проекта с датами с прокруткой -->
         <oxy:PlotView x:Name="ProjectTimeline" Grid.Row="1" Grid.Column="2" Model="{Binding PlotModel}" />
     </Grid>
 </Page>

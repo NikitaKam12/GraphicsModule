@@ -19,7 +19,6 @@ namespace GraphicsModule.Pages
             LoadData(); // Загрузка данных при инициализации страницы
         }
 
-
         // Метод для загрузки данных
         private void LoadData()
         {
@@ -43,7 +42,6 @@ namespace GraphicsModule.Pages
 
                 using (var conn = connection.GetConnection())
                 {
-                    // Проверяем, если соединение не открыто, то открываем его
                     if (conn.State != System.Data.ConnectionState.Open)
                     {
                         conn.Open();
@@ -87,13 +85,16 @@ namespace GraphicsModule.Pages
                        WHEN pu.id_user IS NOT NULL THEN 'Да' 
                        ELSE 'Нет' 
                    END as is_assigned,
-                   cl.org_name  -- название компании
+                   STRING_AGG(cl.org_name, ', ') as org_names  -- Объединение названий компаний через запятую
             FROM Users u
             LEFT JOIN ProjectUsers pu ON u.id_user = pu.id_user
             LEFT JOIN Project p ON pu.id_project = p.id_project
             LEFT JOIN Contracts c ON p.id_contract = c.id_contract
             LEFT JOIN Organizations o ON c.id_org = o.id_org
-            LEFT JOIN Clients cl ON o.id_client = cl.id_client";
+            LEFT JOIN Clients cl ON o.id_client = cl.id_client
+            LEFT JOIN Roles r ON u.id_role = r.id_role  -- Присоединение таблицы с ролями
+            WHERE r.role_name != 'Администратор'  -- Исключаем администраторов
+            GROUP BY u.id_user, u.name_user, pu.id_user";
 
                 using (var conn = connection.GetConnection())
                 {
@@ -113,7 +114,7 @@ namespace GraphicsModule.Pages
                                     UserId = reader.GetGuid(0),
                                     UserName = reader.GetString(1),
                                     IsAssigned = reader.GetString(2),
-                                    OrgName = reader.IsDBNull(3) ? "Нет компании" : reader.GetString(3)  // Если не назначен, выводим "Нет компании"
+                                    OrgNames = reader.IsDBNull(3) ? "Нет компании" : reader.GetString(3)  // Если не назначен, выводим "Нет компании"
                                 });
                             }
                         }
@@ -144,7 +145,6 @@ namespace GraphicsModule.Pages
             {
                 using (var conn = connection.GetConnection())
                 {
-                    // Проверяем, если соединение не открыто, то открываем его
                     if (conn.State != System.Data.ConnectionState.Open)
                     {
                         conn.Open();
@@ -210,7 +210,7 @@ namespace GraphicsModule.Pages
             public Guid UserId { get; set; }
             public string UserName { get; set; }
             public string IsAssigned { get; set; } // Статус назначения пользователя на проект
-            public string OrgName { get; set; } // Название компании (если назначен)
+            public string OrgNames { get; set; } // Названия компаний через запятую
         }
 
         private void GoBack_Click(object sender, RoutedEventArgs e)
@@ -219,4 +219,3 @@ namespace GraphicsModule.Pages
         }
     }
 }
-

@@ -5,6 +5,7 @@ using OxyPlot.Series;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Windows;
 using System.Windows.Controls;
 
 namespace GraphicsModule.Pages
@@ -14,12 +15,15 @@ namespace GraphicsModule.Pages
         public PlotModel PlotModel { get; set; }
 
         private List<ProjectData> projects;
+        public List<string> Companies { get; set; }
+        public List<string> Months { get; set; }
+        public List<int> Years { get; set; }
 
         public MatesAndPlanUserPage()
         {
             InitializeComponent();
             LoadProjectsData();
-            InitializePlotModel();
+            LoadComboBoxData();
         }
 
         private void LoadProjectsData()
@@ -28,32 +32,35 @@ namespace GraphicsModule.Pages
             var userId = Session.UserID;
 
             string query = @"
-        SELECT 
-            p.id_project,
-            c.date_start,
-            c.date_end,
-            s.status_name,
-            cl.org_name,
-            u.id_user,
-            u.name_user
-        FROM 
-            ProjectUsers pu
-        JOIN 
-            Project p ON pu.id_project = p.id_project
-        JOIN 
-            Contracts c ON p.id_contract = c.id_contract
-        JOIN 
-            Status s ON p.id_status = s.id_status
-        JOIN 
-            Organizations o ON c.id_org = o.id_org
-        JOIN 
-            Clients cl ON o.id_client = cl.id_client
-        JOIN 
-            ProjectUsers pu_all ON p.id_project = pu_all.id_project
-        JOIN 
-            Users u ON pu_all.id_user = u.id_user
-        WHERE 
-            pu.id_user = @userId";
+                SELECT 
+                    p.id_project,
+                    c.date_start,
+                    c.date_end,
+                    c.date1_start, 
+                    c.date2_end,
+                    s.status_name,
+                    cl.org_name,
+                    u.id_user,
+                    u.name_user
+                FROM 
+                    ProjectUsers pu
+                JOIN 
+                    Project p ON pu.id_project = p.id_project
+                JOIN 
+                    Contracts c ON p.id_contract = c.id_contract
+                JOIN 
+                    Status s ON p.id_status = s.id_status
+                JOIN 
+                    Organizations o ON c.id_org = o.id_org
+                JOIN 
+                    Clients cl ON o.id_client = cl.id_client
+                JOIN 
+                    ProjectUsers pu_all ON p.id_project = pu_all.id_project
+                JOIN 
+                    Users u ON pu_all.id_user = u.id_user
+                WHERE 
+                    pu.id_user = @userId
+                    AND s.status_name != 'Архивирован'";
 
             using (var conn = connection.GetConnection())
             {
@@ -69,7 +76,6 @@ namespace GraphicsModule.Pages
                             var projectId = reader.GetGuid(0);
                             var projectData = projects.FirstOrDefault(p => p.ProjectId == projectId);
 
-                            // Если проект еще не добавлен в список
                             if (projectData == null)
                             {
                                 projectData = new ProjectData
@@ -77,18 +83,19 @@ namespace GraphicsModule.Pages
                                     ProjectId = projectId,
                                     StartDate = reader.GetDateTime(1),
                                     EndDate = reader.GetDateTime(2),
-                                    Status = reader.GetString(3),
-                                    OrganizationName = reader.GetString(4),
-                                    TeamMembers = new List<UserData>()
+                                    ResumeDate = reader.GetDateTime(3), // Дата возобновления
+                                    ResumeEndDate = reader.GetDateTime(4), // Дата окончания после возобновления
+                                    Status = reader.GetString(5),
+                                    OrganizationName = reader.GetString(6),
+                                    TeamMembers = new List<TeamMemberData>()
                                 };
                                 projects.Add(projectData);
                             }
 
-                            // Добавление членов команды проекта
-                            var teamMember = new UserData
+                            var teamMember = new TeamMemberData
                             {
-                                UserId = reader.GetGuid(5),
-                                UserName = reader.GetString(6)
+                                UserId = reader.GetGuid(7),
+                                UserName = reader.GetString(8)
                             };
 
                             if (!projectData.TeamMembers.Any(u => u.UserId == teamMember.UserId))
@@ -97,26 +104,18 @@ namespace GraphicsModule.Pages
                             }
                         }
 
-                        // После загрузки данных из базы вызов метода для обновления графика
                         InitializePlotModel();
                     }
                 }
             }
         }
 
-
         private void InitializePlotModel()
         {
-            if (projects == null || !projects.Any())
-            {
-                throw new Exception("Список проектов пуст или не инициализирован.");
-            }
-
             PlotModel = new PlotModel { Title = "Диаграмма Ганта" };
 
-            // Ось X - время (месяцы)
             var startDate = projects.Min(p => p.StartDate);
-            var endDate = projects.Max(p => p.EndDate);
+            var endDate = projects.Max(p => p.ResumeEndDate);
 
             var timeAxis = new DateTimeAxis
             {
@@ -131,14 +130,11 @@ namespace GraphicsModule.Pages
             };
             PlotModel.Axes.Add(timeAxis);
 
-            // Ось Y - Проекты (категории) с возможностью прокрутки
             var categoryAxis = new CategoryAxis
             {
                 Position = AxisPosition.Left,
                 Title = "Проекты",
-                GapWidth = 0.5,  // Делает график более читаемым
-                IsPanEnabled = true,  // Включение прокрутки
-                IsZoomEnabled = true  // Включение увеличения
+                GapWidth = 0.5
             };
 
             foreach (var project in projects)
@@ -147,7 +143,6 @@ namespace GraphicsModule.Pages
             }
             PlotModel.Axes.Add(categoryAxis);
 
-            // Добавление каждого проекта как прямоугольника
             foreach (var project in projects)
             {
                 var barSeries = new RectangleBarSeries
@@ -158,13 +153,17 @@ namespace GraphicsModule.Pages
                     Title = project.OrganizationName
                 };
 
+                // Первая часть (до паузы)
                 var startDateDouble = DateTimeAxis.ToDouble(project.StartDate);
                 var endDateDouble = DateTimeAxis.ToDouble(project.EndDate);
                 int projectIndex = projects.IndexOf(project);
+                barSeries.Items.Add(new RectangleBarItem(startDateDouble, projectIndex - 0.2, endDateDouble, projectIndex + 0.2));
 
-                barSeries.Items.Add(new RectangleBarItem(startDateDouble, projectIndex - 0.4, endDateDouble, projectIndex + 0.4));
+                // Вторая часть (после возобновления)
+                var resumeDateDouble = DateTimeAxis.ToDouble(project.ResumeDate);
+                var resumeEndDateDouble = DateTimeAxis.ToDouble(project.ResumeEndDate);
+                barSeries.Items.Add(new RectangleBarItem(resumeDateDouble, projectIndex - 0.2, resumeEndDateDouble, projectIndex + 0.2));
 
-                // Подключение события для обновления команды и компании
                 barSeries.MouseDown += (s, e) =>
                 {
                     UpdateCompanyName(project.OrganizationName);
@@ -177,38 +176,136 @@ namespace GraphicsModule.Pages
             ProjectTimeline.Model = PlotModel;
         }
 
-
-        // Метод для обновления списка команды проекта
-        private void UpdateTeamList(List<UserData> teamMembers)
+        private void UpdateTeamList(List<TeamMemberData> teamMembers)
         {
             TeamList.ItemsSource = teamMembers;
         }
 
-        // Метод для обновления названия компании
         private void UpdateCompanyName(string companyName)
         {
             CompanyName.Text = companyName;
         }
 
-        public class ProjectData
+        private void LoadComboBoxData()
         {
-            public Guid ProjectId { get; set; }
-            public DateTime StartDate { get; set; }
-            public DateTime EndDate { get; set; }
-            public string OrganizationName { get; set; }
-            public string Status { get; set; }
-            public List<UserData> TeamMembers { get; set; } = new List<UserData>();
+            // Заполнение ComboBox списками компаний, месяцев и лет
+            Companies = projects.Select(p => p.OrganizationName).Distinct().ToList();
+            Months = projects.Select(p => p.StartDate.ToString("MMMM")).Distinct().ToList();
+            Years = projects.Select(p => p.StartDate.Year).Distinct().ToList();
+
+            SortByCompany.ItemsSource = Companies;
+            SortByMonth.ItemsSource = Months;
+            SortByYear.ItemsSource = Years;
         }
 
-        public class UserData
+        private void SortByCompany_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            public Guid UserId { get; set; }
-            public string UserName { get; set; }
+            // Обработка сортировки по компании
+            var selectedCompany = SortByCompany.SelectedItem as string;
+            var filteredProjects = projects.Where(p => p.OrganizationName == selectedCompany).ToList();
+            UpdatePlot(filteredProjects);
         }
 
-        private void Go_Back(object sender, System.Windows.RoutedEventArgs e)
+        private void SortByMonth_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            // Обработка сортировки по месяцу
+            var selectedMonth = SortByMonth.SelectedItem as string;
+            var filteredProjects = projects.Where(p => p.StartDate.ToString("MMMM") == selectedMonth).ToList();
+            UpdatePlot(filteredProjects);
+        }
+
+        private void SortByYear_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // Обработка сортировки по году
+            var selectedYear = SortByYear.SelectedItem as int?;
+            var filteredProjects = projects.Where(p => p.StartDate.Year == selectedYear).ToList();
+            UpdatePlot(filteredProjects);
+        }
+        private void AddMouseDownHandlersToSeries()
+        {
+            foreach (var series in PlotModel.Series.OfType<RectangleBarSeries>())
+            {
+                var project = projects.FirstOrDefault(p => p.OrganizationName == series.Title);
+                if (project != null)
+                {
+                    series.MouseDown += (s, e) =>
+                    {
+                        UpdateCompanyName(project.OrganizationName);
+                        UpdateTeamList(project.TeamMembers);
+                    };
+                }
+            }
+        }
+
+        private void UpdatePlot(List<ProjectData> filteredProjects)
+        {
+            PlotModel.Series.Clear();
+
+            foreach (var project in filteredProjects)
+            {
+                var barSeries = new RectangleBarSeries
+                {
+                    FillColor = OxyColors.CornflowerBlue,
+                    StrokeColor = OxyColors.Black,
+                    StrokeThickness = 1,
+                    Title = project.OrganizationName
+                };
+
+                // Первая часть (до паузы)
+                var startDateDouble = DateTimeAxis.ToDouble(project.StartDate);
+                var endDateDouble = DateTimeAxis.ToDouble(project.EndDate);
+                int projectIndex = filteredProjects.IndexOf(project);
+                barSeries.Items.Add(new RectangleBarItem(startDateDouble, projectIndex - 0.2, endDateDouble, projectIndex + 0.2));
+
+                // Вторая часть (после возобновления)
+                var resumeDateDouble = DateTimeAxis.ToDouble(project.ResumeDate);
+                var resumeEndDateDouble = DateTimeAxis.ToDouble(project.ResumeEndDate);
+                barSeries.Items.Add(new RectangleBarItem(resumeDateDouble, projectIndex - 0.2, resumeEndDateDouble, projectIndex + 0.2));
+
+                PlotModel.Series.Add(barSeries);
+            }
+
+            // Добавляем обработчики событий
+            AddMouseDownHandlersToSeries();
+
+            ProjectTimeline.Model.InvalidatePlot(true);
+        }
+
+
+        private void ResetFilters_Click(object sender, RoutedEventArgs e)
+        {
+            // Очищаем фильтры
+            SortByCompany.SelectedItem = null;
+            SortByMonth.SelectedItem = null;
+            SortByYear.SelectedItem = null;
+
+            // Перезагружаем все проекты (без фильтрации)
+            UpdatePlot(projects);
+        }
+
+
+        private void Go_Back(object sender, RoutedEventArgs e)
+        {
+            // Обработка кнопки "Назад"
             NavigationService.GoBack();
         }
+    }
+
+    public class ProjectData
+    {
+        public Guid ProjectId { get; set; }
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public DateTime ResumeDate { get; set; }
+        public DateTime ResumeEndDate { get; set; }
+        public string Status { get; set; }
+        public string OrganizationName { get; set; }
+        public List<TeamMemberData> TeamMembers { get; set; }
+    }
+
+    public class TeamMemberData
+    {
+        public Guid UserId { get; set; }
+        public string UserName { get; set; }
     }
 }

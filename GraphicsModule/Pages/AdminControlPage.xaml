@@ -92,7 +92,7 @@
                             <GridViewColumn Header="ID" DisplayMemberBinding="{Binding UserId}" Width="50" />
                             <GridViewColumn Header="Имя" DisplayMemberBinding="{Binding UserName}" Width="150" />
                             <GridViewColumn Header="Назначен" DisplayMemberBinding="{Binding IsAssigned}" Width="70" />
-                            <GridViewColumn Header="Компания" DisplayMemberBinding="{Binding OrgName}" Width="150" />
+                            <GridViewColumn Header="Компания" DisplayMemberBinding="{Binding OrgNames}" Width="150" />
                         </GridView>
                     </ListView.View>
                 </ListView>
