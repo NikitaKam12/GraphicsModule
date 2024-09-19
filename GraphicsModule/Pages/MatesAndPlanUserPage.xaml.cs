@@ -32,35 +32,37 @@ namespace GraphicsModule.Pages
             var userId = Session.UserID;
 
             string query = @"
-                SELECT 
-                    p.id_project,
-                    c.date_start,
-                    c.date_end,
-                    c.date1_start, 
-                    c.date2_end,
-                    s.status_name,
-                    cl.org_name,
-                    u.id_user,
-                    u.name_user
-                FROM 
-                    ProjectUsers pu
-                JOIN 
-                    Project p ON pu.id_project = p.id_project
-                JOIN 
-                    Contracts c ON p.id_contract = c.id_contract
-                JOIN 
-                    Status s ON p.id_status = s.id_status
-                JOIN 
-                    Organizations o ON c.id_org = o.id_org
-                JOIN 
-                    Clients cl ON o.id_client = cl.id_client
-                JOIN 
-                    ProjectUsers pu_all ON p.id_project = pu_all.id_project
-                JOIN 
-                    Users u ON pu_all.id_user = u.id_user
-                WHERE 
-                    pu.id_user = @userId
-                    AND s.status_name != 'Архивирован'";
+        SELECT 
+            p.id_project,
+            c.date_start,
+            c.date_end,
+            c.date1_start, 
+            c.date2_end,
+            s.status_name,
+            cl.org_name,
+            u.id_user,
+            u.name_user,
+            pu.phase1,
+            pu.phase2
+        FROM 
+            ProjectUsers pu
+        JOIN 
+            Project p ON pu.id_project = p.id_project
+        JOIN 
+            Contracts c ON p.id_contract = c.id_contract
+        JOIN 
+            Status s ON p.id_status = s.id_status
+        JOIN 
+            Organizations o ON c.id_org = o.id_org
+        JOIN 
+            Clients cl ON o.id_client = cl.id_client
+        JOIN 
+            ProjectUsers pu_all ON p.id_project = pu_all.id_project
+        JOIN 
+            Users u ON pu_all.id_user = u.id_user
+        WHERE 
+            pu.id_user = @userId
+            AND s.status_name != 'Архивирован'";
 
             using (var conn = connection.GetConnection())
             {
@@ -83,8 +85,8 @@ namespace GraphicsModule.Pages
                                     ProjectId = projectId,
                                     StartDate = reader.GetDateTime(1),
                                     EndDate = reader.GetDateTime(2),
-                                    ResumeDate = reader.GetDateTime(3), // Дата возобновления
-                                    ResumeEndDate = reader.GetDateTime(4), // Дата окончания после возобновления
+                                    ResumeDate = reader.GetDateTime(3),
+                                    ResumeEndDate = reader.GetDateTime(4),
                                     Status = reader.GetString(5),
                                     OrganizationName = reader.GetString(6),
                                     TeamMembers = new List<TeamMemberData>()
@@ -95,7 +97,9 @@ namespace GraphicsModule.Pages
                             var teamMember = new TeamMemberData
                             {
                                 UserId = reader.GetGuid(7),
-                                UserName = reader.GetString(8)
+                                UserName = reader.GetString(8),
+                                Phase1 = reader.GetBoolean(9),  // Участие в фазе 1
+                                Phase2 = reader.GetBoolean(10)  // Участие в фазе 2
                             };
 
                             if (!projectData.TeamMembers.Any(u => u.UserId == teamMember.UserId))
@@ -110,9 +114,10 @@ namespace GraphicsModule.Pages
             }
         }
 
+
         private void InitializePlotModel()
         {
-            PlotModel = new PlotModel { Title = "Диаграмма Ганта" };
+            PlotModel = new PlotModel { Title = "Общий график работы с командой" };
 
             var startDate = projects.Min(p => p.StartDate);
             var endDate = projects.Max(p => p.ResumeEndDate);
@@ -153,21 +158,38 @@ namespace GraphicsModule.Pages
                     Title = project.OrganizationName
                 };
 
-                // Первая часть (до паузы)
-                var startDateDouble = DateTimeAxis.ToDouble(project.StartDate);
-                var endDateDouble = DateTimeAxis.ToDouble(project.EndDate);
-                int projectIndex = projects.IndexOf(project);
-                barSeries.Items.Add(new RectangleBarItem(startDateDouble, projectIndex - 0.2, endDateDouble, projectIndex + 0.2));
+                // Определяем, есть ли участники, участвующие в фазе 1
+                bool phase1Exists = project.TeamMembers.Any(member => member.Phase1);
 
-                // Вторая часть (после возобновления)
-                var resumeDateDouble = DateTimeAxis.ToDouble(project.ResumeDate);
-                var resumeEndDateDouble = DateTimeAxis.ToDouble(project.ResumeEndDate);
-                barSeries.Items.Add(new RectangleBarItem(resumeDateDouble, projectIndex - 0.2, resumeEndDateDouble, projectIndex + 0.2));
+                // Определяем, есть ли участники, участвующие в фазе 2
+                bool phase2Exists = project.TeamMembers.Any(member => member.Phase2);
+
+                // Первая часть (до паузы), если есть участники фазы 1
+                if (phase1Exists)
+                {
+                    var startDateDouble = DateTimeAxis.ToDouble(project.StartDate);
+                    var endDateDouble = DateTimeAxis.ToDouble(project.EndDate);
+                    int projectIndex = projects.IndexOf(project);
+                    barSeries.Items.Add(new RectangleBarItem(startDateDouble, projectIndex - 0.2, endDateDouble, projectIndex + 0.2));
+                }
+
+                // Вторая часть (после возобновления), если есть участники фазы 2
+                if (phase2Exists)
+                {
+                    var resumeDateDouble = DateTimeAxis.ToDouble(project.ResumeDate);
+                    var resumeEndDateDouble = DateTimeAxis.ToDouble(project.ResumeEndDate);
+                    int projectIndex = projects.IndexOf(project);
+                    barSeries.Items.Add(new RectangleBarItem(resumeDateDouble, projectIndex - 0.2, resumeEndDateDouble, projectIndex + 0.2));
+                }
 
                 barSeries.MouseDown += (s, e) =>
                 {
                     UpdateCompanyName(project.OrganizationName);
-                    UpdateTeamList(project.TeamMembers);
+                    // Фильтрация участников команды в зависимости от фаз проекта
+                    var currentPhaseMembers = project.TeamMembers
+                        .Where(member => (phase1Exists && member.Phase1) || (phase2Exists && member.Phase2))
+                        .ToList();
+                    UpdateTeamList(currentPhaseMembers);
                 };
 
                 PlotModel.Series.Add(barSeries);
@@ -176,14 +198,15 @@ namespace GraphicsModule.Pages
             ProjectTimeline.Model = PlotModel;
         }
 
+
         private void UpdateTeamList(List<TeamMemberData> teamMembers)
         {
             TeamList.ItemsSource = teamMembers;
         }
 
-        private void UpdateCompanyName(string companyName)
+        private void UpdateCompanyName(string organizationName)
         {
-            CompanyName.Text = companyName;
+            CompanyName.Text = organizationName;
         }
 
         private void LoadComboBoxData()
@@ -251,16 +274,27 @@ namespace GraphicsModule.Pages
                     Title = project.OrganizationName
                 };
 
-                // Первая часть (до паузы)
-                var startDateDouble = DateTimeAxis.ToDouble(project.StartDate);
-                var endDateDouble = DateTimeAxis.ToDouble(project.EndDate);
-                int projectIndex = filteredProjects.IndexOf(project);
-                barSeries.Items.Add(new RectangleBarItem(startDateDouble, projectIndex - 0.2, endDateDouble, projectIndex + 0.2));
+                // Проверка на наличие участников фазы 1
+                bool phase1Exists = project.TeamMembers.Any(member => member.Phase1);
+                bool phase2Exists = project.TeamMembers.Any(member => member.Phase2);
 
-                // Вторая часть (после возобновления)
-                var resumeDateDouble = DateTimeAxis.ToDouble(project.ResumeDate);
-                var resumeEndDateDouble = DateTimeAxis.ToDouble(project.ResumeEndDate);
-                barSeries.Items.Add(new RectangleBarItem(resumeDateDouble, projectIndex - 0.2, resumeEndDateDouble, projectIndex + 0.2));
+                // Первая часть (до паузы), если есть участники фазы 1
+                if (phase1Exists)
+                {
+                    var startDateDouble = DateTimeAxis.ToDouble(project.StartDate);
+                    var endDateDouble = DateTimeAxis.ToDouble(project.EndDate);
+                    int projectIndex = filteredProjects.IndexOf(project);
+                    barSeries.Items.Add(new RectangleBarItem(startDateDouble, projectIndex - 0.2, endDateDouble, projectIndex + 0.2));
+                }
+
+                // Вторая часть (после возобновления), если есть участники фазы 2
+                if (phase2Exists)
+                {
+                    var resumeDateDouble = DateTimeAxis.ToDouble(project.ResumeDate);
+                    var resumeEndDateDouble = DateTimeAxis.ToDouble(project.ResumeEndDate);
+                    int projectIndex = filteredProjects.IndexOf(project);
+                    barSeries.Items.Add(new RectangleBarItem(resumeDateDouble, projectIndex - 0.2, resumeEndDateDouble, projectIndex + 0.2));
+                }
 
                 PlotModel.Series.Add(barSeries);
             }
@@ -303,9 +337,13 @@ namespace GraphicsModule.Pages
         public List<TeamMemberData> TeamMembers { get; set; }
     }
 
+
     public class TeamMemberData
     {
         public Guid UserId { get; set; }
         public string UserName { get; set; }
+        public bool Phase1 { get; set; }  // Участие в фазе 1
+        public bool Phase2 { get; set; }  // Участие в фазе 2
     }
+
 }

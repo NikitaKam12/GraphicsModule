@@ -71,8 +71,13 @@ namespace GraphicsModule.Pages
                 int amountProfitReportYear = int.Parse(Amount_Profit_Report_Year.Text);
                 int sumAssetsLastYear = int.Parse(Sum_Assets_Last_Year.Text);
                 int sumAssetsReportYear = int.Parse(Sum_Assets_Report_Year.Text);
-                DateTime dateStart = DateTime.Parse(Date_Start.Text);
-                DateTime dateEnd = DateTime.Parse(Date_End.Text);
+
+                // Получаем даты из DatePicker
+                DateTime dateStart = Date_StartPicker.SelectedDate ?? DateTime.Now;
+                DateTime dateEnd = Date_EndPicker.SelectedDate ?? DateTime.Now;
+                DateTime date1Start = Date1_StartPicker.SelectedDate ?? DateTime.Now;
+                DateTime date2End = Date2_EndPicker.SelectedDate ?? DateTime.Now;
+
                 var selectedStatus = (ComboBoxItem)StatusComboBox.SelectedItem;
                 Guid statusId = (Guid)selectedStatus.Tag;
 
@@ -122,8 +127,8 @@ namespace GraphicsModule.Pages
                     }
                 }
 
-                // Вставляем данные в таблицу Contracts
-                string insertContractQuery = "INSERT INTO Contracts (date_start, date_end, id_org) VALUES (@dateStart, @dateEnd, @orgId) RETURNING id_contract";
+                // Вставляем данные в таблицу Contracts, включая новые даты
+                string insertContractQuery = "INSERT INTO Contracts (date_start, date_end, date1_start, date2_end, id_org) VALUES (@dateStart, @dateEnd, @date1Start, @date2End, @orgId) RETURNING id_contract";
                 Guid contractId;
                 using (var conn = _connection.GetConnection())
                 {
@@ -131,6 +136,8 @@ namespace GraphicsModule.Pages
                     {
                         cmd.Parameters.AddWithValue("@dateStart", dateStart);
                         cmd.Parameters.AddWithValue("@dateEnd", dateEnd);
+                        cmd.Parameters.AddWithValue("@date1Start", date1Start);
+                        cmd.Parameters.AddWithValue("@date2End", date2End);
                         cmd.Parameters.AddWithValue("@orgId", orgId);
                         contractId = (Guid)cmd.ExecuteScalar();
                     }
@@ -155,6 +162,7 @@ namespace GraphicsModule.Pages
                 MessageBox.Show($"Ошибка при создании проекта: {ex.Message}");
             }
         }
+
 
     }
 }

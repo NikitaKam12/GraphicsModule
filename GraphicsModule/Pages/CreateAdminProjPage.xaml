@@ -24,16 +24,8 @@
             <Setter Property="Margin" Value="0,5,0,2"/>
         </Style>
 
-        <!-- Стиль для текстовых полей и выпадающего списка -->
+        <!-- Стиль для текстовых полей -->
         <Style TargetType="TextBox">
-            <Setter Property="Width" Value="250"/>
-            <Setter Property="Height" Value="25"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Padding" Value="5"/>
-            <Setter Property="Margin" Value="5"/>
-        </Style>
-
-        <Style TargetType="ComboBox">
             <Setter Property="Width" Value="250"/>
             <Setter Property="Height" Value="25"/>
             <Setter Property="FontSize" Value="12"/>
@@ -43,29 +35,30 @@
 
         <!-- Стиль для кнопок -->
         <Style TargetType="Button">
-            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontSize" Value="16"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Background" Value="#4CAF50"/>
-            <Setter Property="Width" Value="150"/>
-            <Setter Property="Height" Value="35"/>
-            <Setter Property="Margin" Value="5"/>
-            <Setter Property="Padding" Value="5"/>
+            <Setter Property="Width" Value="300"/>
+            <Setter Property="Height" Value="45"/>
+            <Setter Property="Margin" Value="0,0,0,20"/>
+            <Setter Property="Padding" Value="10"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Effect">
                 <Setter.Value>
-                    <DropShadowEffect Color="Black" BlurRadius="6" ShadowDepth="2" />
+                    <DropShadowEffect Color="Black" BlurRadius="8" ShadowDepth="2" />
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
+                <!-- Анимация при наведении на кнопку -->
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="#45a049"/>
                     <Setter Property="Effect">
                         <Setter.Value>
-                            <DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="4" />
+                            <DropShadowEffect Color="Black" BlurRadius="15" ShadowDepth="4" />
                         </Setter.Value>
                     </Setter>
                 </Trigger>
@@ -77,7 +70,7 @@
         <!-- Кнопка "Назад в меню" -->
         <Button Content="Назад в меню" Click="Go_Back"
                 HorizontalAlignment="Left" VerticalAlignment="Top"
-                Width="120" Height="30" Margin="10,10,0,0"
+                Width="120" Height="35" Margin="10,10,0,0"
                 Background="#FF3B3B" Foreground="White" FontSize="12"/>
 
         <!-- Основная форма в два столбца -->
@@ -113,27 +106,33 @@
                 <TextBlock Text="Описание ОКВЭД"/>
                 <TextBox Name="Descr_okvd"/>
 
-                <TextBlock Text="Деньги прошлый"/>
+                <TextBlock Text="Объем выручки аудируемого лица за предыдущий год"/>
                 <TextBox Name="Amount_Profit_Last_Year"/>
 
-                <TextBlock Text="Деньги в год обращения"/>
+                <TextBlock Text="Объем выручки аудируемого лица за отчетный год"/>
                 <TextBox Name="Amount_Profit_Report_Year"/>
 
-                <TextBlock Text="Бухгалтерский баланс прошлый"/>
+                <TextBlock Text="Сумма активов бухгалтерского баланса аудируемого лица за предыдущий год"/>
                 <TextBox Name="Sum_Assets_Last_Year"/>
 
-                <TextBlock Text="Бухгалтерский баланс в год обращения"/>
+                <TextBlock Text="Сумма активов бухгалтерского баланса аудируемого лица за отчетный  год"/>
                 <TextBox Name="Sum_Assets_Report_Year"/>
 
-                <TextBlock Text="Дата начала"/>
-                <TextBox Name="Date_Start"/>
+                <TextBlock Text="Дата начала 1 этапа"/>
+                <DatePicker Name="Date_StartPicker"/>
 
-                <TextBlock Text="Дата окончания"/>
-                <TextBox Name="Date_End"/>
+                <TextBlock Text="Дата окончания 1 этапа"/>
+                <DatePicker Name="Date_EndPicker"/>
+
+                <TextBlock Text="Дата начала 2 этапа"/>
+                <DatePicker Name="Date1_StartPicker"/>
+
+                <TextBlock Text="Дата окончания 2 этапа"/>
+                <DatePicker Name="Date2_EndPicker"/>
             </StackPanel>
 
             <!-- Комбобокс и кнопка внизу -->
-            <StackPanel Grid.ColumnSpan="2" HorizontalAlignment="Left" Margin="146,0,0,-118" VerticalAlignment="Bottom">
+            <StackPanel Grid.ColumnSpan="2" HorizontalAlignment="Center" Margin="146,0,0,-118" VerticalAlignment="Bottom">
                 <TextBlock Text="Статус"/>
                 <ComboBox x:Name="StatusComboBox"/>
 

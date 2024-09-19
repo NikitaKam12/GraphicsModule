@@ -35,7 +35,7 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
-        <Button Content="Назад" Click="Go_Back" Width="120" Height="30" Margin="10,10,0,0"/>
+        <Button Content="Назад" Click="Go_Back" Width="120" Height="30" Margin="10,10,0,0" Background="#FF3B3B" Foreground="White"/>
 
         <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal">
             <TextBlock Text="Сортировка:" Margin="5"/>
@@ -52,7 +52,7 @@
                       SelectedItem="{Binding SelectedYear, Mode=TwoWay}"
                       SelectionChanged="SortByYear_SelectionChanged"/>
             <Button Content="Сбросить сортировку" Width="150" Margin="5"
-            Click="ResetFilters_Click" Background="#FF3B3B" Foreground="White"/>
+                    Click="ResetFilters_Click" Background="#FF3B3B" Foreground="White"/>
         </StackPanel>
 
         <StackPanel Grid.Row="1" Grid.Column="0" Margin="10">
