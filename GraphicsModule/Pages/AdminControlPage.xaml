@@ -97,6 +97,13 @@
                     </ListView.View>
                 </ListView>
 
+                <!-- ComboBox для выбора этапа назначения -->
+                <ComboBox x:Name="PhaseComboBox" Width="180" Margin="5">
+                    <ComboBoxItem Content="Этап 1" />
+                    <ComboBoxItem Content="Этап 2" />
+                    <ComboBoxItem Content="Оба этапа" />
+                </ComboBox>
+
                 <!-- Кнопка для назначения пользователя на проект -->
                 <Button Content="Назначить на проект" Width="180" Margin="5" Click="AssignUserToProject_Click" />
             </StackPanel>

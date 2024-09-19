@@ -134,12 +134,17 @@ namespace GraphicsModule.Pages
         {
             var selectedProject = ProjectsListView.SelectedItem as ProjectData;
             var selectedUser = UsersListView.SelectedItem as UserData;
+            var selectedPhase = PhaseComboBox.SelectedItem as ComboBoxItem;
 
-            if (selectedProject == null || selectedUser == null)
+            if (selectedProject == null || selectedUser == null || selectedPhase == null)
             {
-                MessageBox.Show("Пожалуйста, выберите проект и пользователя.");
+                MessageBox.Show("Пожалуйста, выберите проект, пользователя и этап.");
                 return;
             }
+
+            string phaseText = selectedPhase.Content.ToString();
+            bool assignPhase1 = phaseText == "Этап 1" || phaseText == "Оба этапа";
+            bool assignPhase2 = phaseText == "Этап 2" || phaseText == "Оба этапа";
 
             try
             {
@@ -156,7 +161,7 @@ namespace GraphicsModule.Pages
                         return;
                     }
 
-                    AssignUserToProject(selectedUser.UserId, selectedProject.ProjectId, conn);
+                    AssignUserToProject(selectedUser.UserId, selectedProject.ProjectId, assignPhase1, assignPhase2, conn);
 
                     MessageBox.Show("Пользователь успешно назначен на проект.");
                     LoadUsers(); // Обновляем список пользователей
@@ -183,14 +188,16 @@ namespace GraphicsModule.Pages
         }
 
         // Назначение пользователя на проект
-        private void AssignUserToProject(Guid userId, Guid projectId, NpgsqlConnection conn)
+        private void AssignUserToProject(Guid userId, Guid projectId, bool assignPhase1, bool assignPhase2, NpgsqlConnection conn)
         {
-            string query = "INSERT INTO ProjectUsers (id_project, id_user) VALUES (@projectId, @userId)";
+            string query = "INSERT INTO ProjectUsers (id_project, id_user, phase1, phase2) VALUES (@projectId, @userId, @phase1, @phase2)";
 
             using (var cmd = new NpgsqlCommand(query, conn))
             {
                 cmd.Parameters.AddWithValue("@projectId", projectId);
                 cmd.Parameters.AddWithValue("@userId", userId);
+                cmd.Parameters.AddWithValue("@phase1", assignPhase1);
+                cmd.Parameters.AddWithValue("@phase2", assignPhase2);
 
                 cmd.ExecuteNonQuery();
             }
