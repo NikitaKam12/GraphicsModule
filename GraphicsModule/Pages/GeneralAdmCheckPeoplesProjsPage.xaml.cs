@@ -4,13 +4,14 @@ using OxyPlot.Axes;
 using OxyPlot.Series;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 
 namespace GraphicsModule.Pages
 {
-    public partial class MatesAndPlanUserPage : Page
+    public partial class GeneralAdmCheckPeoplesProjsPage : Page
     {
         public PlotModel PlotModel { get; set; }
 
@@ -19,7 +20,7 @@ namespace GraphicsModule.Pages
         public List<string> Months { get; set; }
         public List<int> Years { get; set; }
 
-        public MatesAndPlanUserPage()
+        public GeneralAdmCheckPeoplesProjsPage()
         {
             InitializeComponent();
             LoadProjectsData();
@@ -29,45 +30,43 @@ namespace GraphicsModule.Pages
         private void LoadProjectsData()
         {
             var connection = new Connection();
-            var userId = Session.UserID;
 
             string query = @"
-            SELECT 
-                p.id_project,
-                c.date_start,
-                c.date_end,
-                s.status_name,
-                cl.org_name,
-                u.id_user,
-                u.name_user,
-                pu.phase1_start,
-                pu.phase1_end,
-                pu.phase2_start,
-                pu.phase2_end
-            FROM 
-                ProjectUsers pu
-            JOIN 
-                Project p ON pu.id_project = p.id_project
-            JOIN 
-                Contracts c ON p.id_contract = c.id_contract
-            JOIN 
-                Status s ON p.id_status = s.id_status
-            JOIN 
-                Organizations o ON c.id_org = o.id_org
-            JOIN 
-                Clients cl ON o.id_client = cl.id_client
-            JOIN 
-                Users u ON pu.id_user = u.id_user
-            WHERE 
-                pu.id_user = @userId
-                AND s.status_name != 'Архивирован'";
+        SELECT 
+            p.id_project,
+            c.date_start,
+            c.date_end,
+            c.date1_start, 
+            c.date2_end,
+            s.status_name,
+            cl.org_name,
+            u.id_user,
+            u.name_user,
+            pu.phase1,
+            pu.phase2
+        FROM 
+            ProjectUsers pu
+        JOIN 
+            Project p ON pu.id_project = p.id_project
+        JOIN 
+            Contracts c ON p.id_contract = c.id_contract
+        JOIN 
+            Status s ON p.id_status = s.id_status
+        JOIN 
+            Organizations o ON c.id_org = o.id_org
+        JOIN 
+            Clients cl ON o.id_client = cl.id_client
+        JOIN 
+            ProjectUsers pu_all ON p.id_project = pu_all.id_project
+        JOIN 
+            Users u ON pu_all.id_user = u.id_user
+        WHERE 
+            s.status_name != 'Архивирован'";
 
             using (var conn = connection.GetConnection())
             {
                 using (var cmd = new NpgsqlCommand(query, conn))
                 {
-                    cmd.Parameters.AddWithValue("@userId", userId);
-
                     using (var reader = cmd.ExecuteReader())
                     {
                         projects = new List<ProjectData>();
@@ -83,8 +82,10 @@ namespace GraphicsModule.Pages
                                     ProjectId = projectId,
                                     StartDate = reader.GetDateTime(1),
                                     EndDate = reader.GetDateTime(2),
-                                    Status = reader.GetString(3),
-                                    OrganizationName = reader.GetString(4),
+                                    ResumeDate = reader.GetDateTime(3),
+                                    ResumeEndDate = reader.GetDateTime(4),
+                                    Status = reader.GetString(5),
+                                    OrganizationName = reader.GetString(6),
                                     TeamMembers = new List<TeamMemberData>()
                                 };
                                 projects.Add(projectData);
@@ -92,15 +93,16 @@ namespace GraphicsModule.Pages
 
                             var teamMember = new TeamMemberData
                             {
-                                UserId = reader.GetGuid(5),
-                                UserName = reader.GetString(6),
-                                Phase1Start = reader.IsDBNull(7) ? (DateTime?)null : reader.GetDateTime(7),
-                                Phase1End = reader.IsDBNull(8) ? (DateTime?)null : reader.GetDateTime(8),
-                                Phase2Start = reader.IsDBNull(9) ? (DateTime?)null : reader.GetDateTime(9),
-                                Phase2End = reader.IsDBNull(10) ? (DateTime?)null : reader.GetDateTime(10)
+                                UserId = reader.GetGuid(7),
+                                UserName = reader.GetString(8),
+                                Phase1 = reader.GetBoolean(9),
+                                Phase2 = reader.GetBoolean(10)
                             };
 
-                            projectData.TeamMembers.Add(teamMember);
+                            if (!projectData.TeamMembers.Any(u => u.UserId == teamMember.UserId))
+                            {
+                                projectData.TeamMembers.Add(teamMember);
+                            }
                         }
 
                         InitializePlotModel();
@@ -111,12 +113,10 @@ namespace GraphicsModule.Pages
 
         private void InitializePlotModel()
         {
-            PlotModel = new PlotModel { Title = "График работы по проектам" };
-
-            if (!projects.Any()) return;
+            PlotModel = new PlotModel { Title = "Общий график работы с проектами" };
 
             var startDate = projects.Min(p => p.StartDate);
-            var endDate = projects.Max(p => p.EndDate);
+            var endDate = projects.Max(p => p.ResumeEndDate);
 
             var timeAxis = new DateTimeAxis
             {
@@ -153,49 +153,54 @@ namespace GraphicsModule.Pages
 
             foreach (var project in filteredProjects)
             {
-                int projectIndex = filteredProjects.IndexOf(project);
-
-                foreach (var member in project.TeamMembers)
+                var barSeries = new RectangleBarSeries
                 {
-                    if (member.Phase1Start.HasValue && member.Phase1End.HasValue)
-                    {
-                        // Фаза 1
-                        var phase1Series = new RectangleBarSeries
-                        {
-                            FillColor = OxyColors.Green,  // Цвет фазы 1
-                            StrokeColor = OxyColors.Black,
-                            StrokeThickness = 1
-                        };
+                    FillColor = OxyColors.CornflowerBlue,
+                    StrokeColor = OxyColors.Black,
+                    StrokeThickness = 1,
+                    Title = project.OrganizationName
+                };
 
-                        var phase1StartDouble = DateTimeAxis.ToDouble(member.Phase1Start.Value);
-                        var phase1EndDouble = DateTimeAxis.ToDouble(member.Phase1End.Value);
-
-                        phase1Series.Items.Add(new RectangleBarItem(phase1StartDouble, projectIndex - 0.2, phase1EndDouble, projectIndex + 0.2));
-                        PlotModel.Series.Add(phase1Series);
-                    }
-
-                    if (member.Phase2Start.HasValue && member.Phase2End.HasValue)
-                    {
-                        // Фаза 2
-                        var phase2Series = new RectangleBarSeries
-                        {
-                            FillColor = OxyColors.Blue,  // Цвет фазы 2
-                            StrokeColor = OxyColors.Black,
-                            StrokeThickness = 1
-                        };
-
-                        var phase2StartDouble = DateTimeAxis.ToDouble(member.Phase2Start.Value);
-                        var phase2EndDouble = DateTimeAxis.ToDouble(member.Phase2End.Value);
-
-                        phase2Series.Items.Add(new RectangleBarItem(phase2StartDouble, projectIndex - 0.2, phase2EndDouble, projectIndex + 0.2));
-                        PlotModel.Series.Add(phase2Series);
-                    }
+                // Отображаем фазу 1, если есть данные
+                if (project.StartDate != DateTime.MinValue && project.EndDate != DateTime.MinValue)
+                {
+                    var startDateDouble = DateTimeAxis.ToDouble(project.StartDate);
+                    var endDateDouble = DateTimeAxis.ToDouble(project.EndDate);
+                    int projectIndex = filteredProjects.IndexOf(project);
+                    barSeries.Items.Add(new RectangleBarItem(startDateDouble, projectIndex - 0.2, endDateDouble, projectIndex + 0.2));
                 }
+                else
+                {
+                    Debug.WriteLine($"Проект {project.OrganizationName} не имеет корректных данных для фазы 1.");
+                }
+
+                // Отображаем фазу 2, если есть данные
+                if (project.ResumeDate != DateTime.MinValue && project.ResumeEndDate != DateTime.MinValue)
+                {
+                    var resumeDateDouble = DateTimeAxis.ToDouble(project.ResumeDate);
+                    var resumeEndDateDouble = DateTimeAxis.ToDouble(project.ResumeEndDate);
+                    int projectIndex = filteredProjects.IndexOf(project);
+                    barSeries.Items.Add(new RectangleBarItem(resumeDateDouble, projectIndex - 0.2, resumeEndDateDouble, projectIndex + 0.2));
+                }
+                else
+                {
+                    Debug.WriteLine($"Проект {project.OrganizationName} не имеет корректных данных для фазы 2.");
+                }
+
+                barSeries.MouseDown += (s, e) =>
+                {
+                    UpdateCompanyName(project.OrganizationName);
+                    UpdateTeamList(project.TeamMembers);
+                };
+
+                PlotModel.Series.Add(barSeries);
             }
 
             ProjectTimeline.Model = PlotModel;
-            ProjectTimeline.InvalidatePlot(true); // Обновляем график
+            ProjectTimeline.InvalidatePlot(true); // Обновляем отображение
         }
+
+
 
         private void UpdateTeamList(List<TeamMemberData> teamMembers)
         {
@@ -218,7 +223,7 @@ namespace GraphicsModule.Pages
             SortByYear.ItemsSource = Years;
         }
 
-        // Метод для применения фильтров
+        // Метод для применения комбинированной сортировки
         private void ApplyFilters()
         {
             var filteredProjects = projects.AsEnumerable();
@@ -241,28 +246,30 @@ namespace GraphicsModule.Pages
             UpdatePlot(filteredProjects.ToList());
         }
 
+        // Комбинированная сортировка при изменении компании
         private void SortByCompany_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             ApplyFilters();
         }
 
+        // Комбинированная сортировка при изменении месяца
         private void SortByMonth_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             ApplyFilters();
         }
 
+        // Комбинированная сортировка при изменении года
         private void SortByYear_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             ApplyFilters();
         }
 
+        // Сброс фильтров
         private void ResetFilters_Click(object sender, RoutedEventArgs e)
         {
             SortByCompany.SelectedItem = null;
             SortByMonth.SelectedItem = null;
             SortByYear.SelectedItem = null;
-
-            // Перезагружаем все проекты (без фильтрации)
             UpdatePlot(projects);
         }
 
@@ -270,30 +277,5 @@ namespace GraphicsModule.Pages
         {
             NavigationService.GoBack();
         }
-    }
-
-    public class ProjectData
-    {
-        public Guid ProjectId { get; set; }
-        public DateTime StartDate { get; set; }
-        public DateTime EndDate { get; set; }
-        public DateTime ResumeDate { get; set; }
-        public DateTime ResumeEndDate { get; set; }
-        public string Status { get; set; }
-        public string OrganizationName { get; set; }
-        public List<TeamMemberData> TeamMembers { get; set; }
-    }
-
-    public class TeamMemberData
-    {
-        public Guid UserId { get; set; }
-        public string UserName { get; set; }
-        public DateTime? Phase1Start { get; set; }  // Дата начала фазы 1
-        public DateTime? Phase1End { get; set; }    // Дата конца фазы 1
-        public DateTime? Phase2Start { get; set; }  // Дата начала фазы 2
-        public DateTime? Phase2End { get; set; }    // Дата конца фазы 2
-        public bool Phase1 { get; set; }
-        public bool Phase2 { get; set; }
-    
     }
 }

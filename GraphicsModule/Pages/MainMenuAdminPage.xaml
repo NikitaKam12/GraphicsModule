@@ -76,6 +76,7 @@
             <Button x:Name="Butn1menu" Content="Внесение данных о проекте" Click="Create_Plan_Butn"/>
             <Button x:Name="Butn2menu" Content="Назначение людей на проекты" Click="Set_peoples_Butn"/>
             <Button x:Name="Butn3menu" Content="Вывод нагрузки человека" Click="Show_User_Load"/>
+            <Button x:Name="Butn4menu" Content="Вывод всех проектов" Click="Show_User_Project"/>
         </StackPanel>
     </Grid>
 </Page>

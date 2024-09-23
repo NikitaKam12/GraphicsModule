@@ -48,5 +48,10 @@ namespace GraphicsModule.Pages
         {
             NavigationService.Navigate(new UserWorkPage());
         }
+
+        private void Show_User_Project(object sender, RoutedEventArgs e)
+        {
+            NavigationService.Navigate(new GeneralAdmCheckPeoplesProjsPage());
+        }
     }
 }
