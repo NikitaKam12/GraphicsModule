@@ -34,11 +34,12 @@ namespace GraphicsModule.Pages
             try
             {
                 string query = @"
-        SELECT p.id_project, c.id_contract, cl.org_name
-        FROM Project p
-        INNER JOIN Contracts c ON p.id_contract = c.id_contract
-        INNER JOIN Organizations o ON c.id_org = o.id_org
-        INNER JOIN Clients cl ON o.id_client = cl.id_client;";
+    SELECT DISTINCT p.id_project, c.id_contract, cl.org_name, 
+           c.date_start, c.date_end, c.date1_start, c.date2_end
+    FROM Project p
+    INNER JOIN Contracts c ON p.id_contract = c.id_contract
+    INNER JOIN Organizations o ON c.id_org = o.id_org
+    INNER JOIN Clients cl ON o.id_client = cl.id_client;";
 
                 using (var conn = connection.GetConnection())
                 {
@@ -51,20 +52,33 @@ namespace GraphicsModule.Pages
                     {
                         using (var reader = cmd.ExecuteReader())
                         {
+                            var uniqueProjects = new HashSet<Guid>();  // Используем для устранения дублирования
+
                             while (reader.Read())
                             {
-                                projects.Add(new ProjectData
+                                var projectId = reader.GetGuid(0);
+
+                                if (!uniqueProjects.Contains(projectId))
                                 {
-                                    ProjectId = reader.GetGuid(0),
-                                    ContractId = reader.GetGuid(1),
-                                    OrgName = reader.GetString(2)
-                                });
+                                    uniqueProjects.Add(projectId);  // Добавляем уникальные проекты
+
+                                    projects.Add(new ProjectData
+                                    {
+                                        ProjectId = projectId,
+                                        ContractId = reader.GetGuid(1),
+                                        OrgName = reader.GetString(2),
+                                        Phase1Start = reader.GetDateTime(3), // Дата начала первого этапа
+                                        Phase1End = reader.GetDateTime(4),   // Дата конца первого этапа
+                                        Phase2Start = reader.IsDBNull(5) ? (DateTime?)null : reader.GetDateTime(5),  // Дата начала второго этапа
+                                        Phase2End = reader.IsDBNull(6) ? (DateTime?)null : reader.GetDateTime(6)     // Дата конца второго этапа
+                                    });
+                                }
                             }
                         }
                     }
                 }
 
-                ProjectsListView.ItemsSource = projects;
+                ProjectsListView.ItemsSource = projects;  // Обновляем список проектов
             }
             catch (Exception ex)
             {
@@ -155,13 +169,57 @@ namespace GraphicsModule.Pages
                         conn.Open();
                     }
 
-                    if (IsUserAlreadyAssigned(selectedUser.UserId, selectedProject.ProjectId, conn))
+                    // Проверяем, назначен ли пользователь на этап 1 или этап 2
+                    if (IsUserAssignedToPhase(selectedUser.UserId, selectedProject.ProjectId, assignPhase1, assignPhase2, conn))
                     {
-                        MessageBox.Show("Этот пользователь уже назначен на выбранный проект.");
+                        MessageBox.Show("Пользователь уже назначен на выбранный этап проекта.");
                         return;
                     }
 
-                    AssignUserToProject(selectedUser.UserId, selectedProject.ProjectId, assignPhase1, assignPhase2, conn);
+                    // Получаем выбранные даты из DatePicker'ов для каждого этапа
+                    DateTime? phase1Start = Phase1StartDatePicker.SelectedDate;
+                    DateTime? phase1End = Phase1EndDatePicker.SelectedDate;
+                    DateTime? phase2Start = Phase2StartDatePicker.SelectedDate;
+                    DateTime? phase2End = Phase2EndDatePicker.SelectedDate;
+
+                    // Логика для этапа 1
+                    if (assignPhase1)
+                    {
+                        if (phase1Start == null) phase1Start = selectedProject.Phase1Start;
+                        if (phase1End == null) phase1End = selectedProject.Phase1End;
+
+                        if (phase1Start < selectedProject.Phase1Start || phase1End > selectedProject.Phase1End)
+                        {
+                            MessageBox.Show("Даты этапа 1 выходят за рамки проекта.");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        phase1Start = null;
+                        phase1End = null;
+                    }
+
+                    // Логика для этапа 2
+                    if (assignPhase2)
+                    {
+                        if (phase2Start == null) phase2Start = selectedProject.Phase2Start;
+                        if (phase2End == null) phase2End = selectedProject.Phase2End;
+
+                        if (phase2Start < selectedProject.Phase2Start || phase2End > selectedProject.Phase2End)
+                        {
+                            MessageBox.Show("Даты этапа 2 выходят за рамки проекта.");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        phase2Start = null;
+                        phase2End = null;
+                    }
+
+                    // Добавляем пользователя с датами или обновляем
+                    AssignOrUpdateUserInProject(selectedUser.UserId, selectedProject.ProjectId, assignPhase1, assignPhase2, phase1Start, phase1End, phase2Start, phase2End, conn);
 
                     MessageBox.Show("Пользователь успешно назначен на проект.");
                     LoadUsers(); // Обновляем список пользователей
@@ -173,33 +231,112 @@ namespace GraphicsModule.Pages
             }
         }
 
-        // Проверка, назначен ли пользователь на проект
-        private bool IsUserAlreadyAssigned(Guid userId, Guid projectId, NpgsqlConnection conn)
+        // Проверка, назначен ли пользователь на этап
+        private bool IsUserAssignedToPhase(Guid userId, Guid projectId, bool assignPhase1, bool assignPhase2, NpgsqlConnection conn)
         {
-            string query = "SELECT COUNT(*) FROM ProjectUsers WHERE id_project = @projectId AND id_user = @userId";
+            string query = @"
+    SELECT phase1, phase2 
+    FROM ProjectUsers 
+    WHERE id_project = @projectId AND id_user = @userId";
 
             using (var cmd = new NpgsqlCommand(query, conn))
             {
                 cmd.Parameters.AddWithValue("@projectId", projectId);
                 cmd.Parameters.AddWithValue("@userId", userId);
 
-                return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
+                using (var reader = cmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        bool isAssignedToPhase1 = reader.GetBoolean(0);
+                        bool isAssignedToPhase2 = reader.GetBoolean(1);
+
+                        // Проверяем, если пользователь уже назначен на этап 1 или этап 2
+                        if ((assignPhase1 && isAssignedToPhase1) || (assignPhase2 && isAssignedToPhase2))
+                        {
+                            return true; // Пользователь уже назначен на указанный этап
+                        }
+                    }
+                }
             }
+
+            return false; // Пользователь не назначен на указанный этап
         }
 
-        // Назначение пользователя на проект
-        private void AssignUserToProject(Guid userId, Guid projectId, bool assignPhase1, bool assignPhase2, NpgsqlConnection conn)
+        // Назначение или обновление пользователя на проект
+        private void AssignOrUpdateUserInProject(Guid userId, Guid projectId, bool assignPhase1, bool assignPhase2, DateTime? phase1Start, DateTime? phase1End, DateTime? phase2Start, DateTime? phase2End, NpgsqlConnection conn)
         {
-            string query = "INSERT INTO ProjectUsers (id_project, id_user, phase1, phase2) VALUES (@projectId, @userId, @phase1, @phase2)";
+            // Проверяем, существует ли уже запись для данного пользователя и проекта
+            string checkQuery = @"
+        SELECT id_project, id_user, phase1, phase2 
+        FROM ProjectUsers 
+        WHERE id_project = @projectId AND id_user = @userId";
 
-            using (var cmd = new NpgsqlCommand(query, conn))
+            using (var checkCmd = new NpgsqlCommand(checkQuery, conn))
             {
-                cmd.Parameters.AddWithValue("@projectId", projectId);
-                cmd.Parameters.AddWithValue("@userId", userId);
-                cmd.Parameters.AddWithValue("@phase1", assignPhase1);
-                cmd.Parameters.AddWithValue("@phase2", assignPhase2);
+                checkCmd.Parameters.AddWithValue("@projectId", projectId);
+                checkCmd.Parameters.AddWithValue("@userId", userId);
 
-                cmd.ExecuteNonQuery();
+                using (var reader = checkCmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        // Запись существует - выполняем обновление
+                        bool isAssignedToPhase1 = reader.GetBoolean(2);
+                        bool isAssignedToPhase2 = reader.GetBoolean(3);
+
+                        reader.Close(); // Закрываем reader перед выполнением команды обновления
+
+                        // Обновляем этапы для существующего пользователя
+                        string updateQuery = @"
+                            UPDATE ProjectUsers 
+                            SET phase1 = @phase1, phase1_start = @phase1Start, phase1_end = @phase1End,
+                                phase2 = @phase2, phase2_start = @phase2Start, phase2_end = @phase2End
+                            WHERE id_project = @projectId AND id_user = @userId";
+
+                        using (var updateCmd = new NpgsqlCommand(updateQuery, conn))
+                        {
+                            updateCmd.Parameters.AddWithValue("@projectId", projectId);
+                            updateCmd.Parameters.AddWithValue("@userId", userId);
+
+                            // Если уже назначен на фазу 1, не обновляем её заново, если только assignPhase1 не true
+                            updateCmd.Parameters.AddWithValue("@phase1", assignPhase1 || isAssignedToPhase1);
+                            updateCmd.Parameters.AddWithValue("@phase1Start", assignPhase1 ? (object)phase1Start : DBNull.Value);
+                            updateCmd.Parameters.AddWithValue("@phase1End", assignPhase1 ? (object)phase1End : DBNull.Value);
+
+                            // Если уже назначен на фазу 2, не обновляем её заново, если только assignPhase2 не true
+                            updateCmd.Parameters.AddWithValue("@phase2", assignPhase2 || isAssignedToPhase2);
+                            updateCmd.Parameters.AddWithValue("@phase2Start", assignPhase2 ? (object)phase2Start : DBNull.Value);
+                            updateCmd.Parameters.AddWithValue("@phase2End", assignPhase2 ? (object)phase2End : DBNull.Value);
+
+                            updateCmd.ExecuteNonQuery();
+                        }
+                    }
+                    else
+                    {
+                        reader.Close(); // Закрываем reader перед выполнением команды вставки
+
+                        // Запись не существует - выполняем вставку новой записи
+                        string insertQuery = @"
+                            INSERT INTO ProjectUsers (id_project, id_user, phase1, phase1_start, phase1_end, 
+                                                      phase2, phase2_start, phase2_end) 
+                            VALUES (@projectId, @userId, @phase1, @phase1Start, @phase1End, @phase2, @phase2Start, @phase2End)";
+
+                        using (var insertCmd = new NpgsqlCommand(insertQuery, conn))
+                        {
+                            insertCmd.Parameters.AddWithValue("@projectId", projectId);
+                            insertCmd.Parameters.AddWithValue("@userId", userId);
+                            insertCmd.Parameters.AddWithValue("@phase1", assignPhase1);
+                            insertCmd.Parameters.AddWithValue("@phase1Start", assignPhase1 ? (object)phase1Start : DBNull.Value);
+                            insertCmd.Parameters.AddWithValue("@phase1End", assignPhase1 ? (object)phase1End : DBNull.Value);
+                            insertCmd.Parameters.AddWithValue("@phase2", assignPhase2);
+                            insertCmd.Parameters.AddWithValue("@phase2Start", assignPhase2 ? (object)phase2Start : DBNull.Value);
+                            insertCmd.Parameters.AddWithValue("@phase2End", assignPhase2 ? (object)phase2End : DBNull.Value);
+
+                            insertCmd.ExecuteNonQuery();
+                        }
+                    }
+                }
             }
         }
 
@@ -209,6 +346,12 @@ namespace GraphicsModule.Pages
             public Guid ProjectId { get; set; }
             public Guid ContractId { get; set; }
             public string OrgName { get; set; }
+            public DateTime StartDate { get; set; }  // Дата начала проекта
+            public DateTime EndDate { get; set; }    // Дата окончания проекта
+            public DateTime? Phase1Start { get; set; }  // Дата начала этапа 1
+            public DateTime? Phase1End { get; set; }    // Дата конца этапа 1
+            public DateTime? Phase2Start { get; set; }  // Дата начала этапа 2
+            public DateTime? Phase2End { get; set; }    // Дата конца этапа 2
         }
 
         // Класс для хранения данных пользователя

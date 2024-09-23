@@ -9,57 +9,7 @@
       Background="{DynamicResource BackgroundGradient}">
 
     <Page.Resources>
-        <!-- Градиент для фона страницы -->
-        <LinearGradientBrush x:Key="BackgroundGradient" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#3b5998" Offset="0.0" />
-            <GradientStop Color="#8b9dc3" Offset="1.0" />
-        </LinearGradientBrush>
-
-        <!-- Стиль для кнопок -->
-        <Style TargetType="Button">
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="FontWeight" Value="Bold"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Background" Value="#4CAF50"/>
-            <Setter Property="Width" Value="150"/>
-            <Setter Property="Height" Value="35"/>
-            <Setter Property="Margin" Value="5"/>
-            <Setter Property="Padding" Value="5"/>
-            <Setter Property="HorizontalAlignment" Value="Center"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Effect">
-                <Setter.Value>
-                    <DropShadowEffect Color="Black" BlurRadius="6" ShadowDepth="2" />
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#45a049"/>
-                    <Setter Property="Effect">
-                        <Setter.Value>
-                            <DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="4" />
-                        </Setter.Value>
-                    </Setter>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-
-        <!-- Стиль для GroupBox -->
-        <Style TargetType="GroupBox">
-            <Setter Property="Margin" Value="10"/>
-            <Setter Property="Padding" Value="10"/>
-            <Setter Property="BorderBrush" Value="#4CAF50"/>
-            <Setter Property="FontSize" Value="14"/>
-            <Setter Property="Foreground" Value="White"/>
-        </Style>
-
-        <!-- Стиль для ListView -->
-        <Style TargetType="ListView">
-            <Setter Property="Margin" Value="10"/>
-            <Setter Property="FontSize" Value="12"/>
-        </Style>
+        <!-- Стили и ресурсы -->
     </Page.Resources>
 
     <Grid Margin="10,40,10,10">
@@ -68,7 +18,7 @@
             <ColumnDefinition Width="1*" />
         </Grid.ColumnDefinitions>
 
-        <!-- Кнопка "Назад" в верхнем левом углу -->
+        <!-- Кнопка "Назад" -->
         <Button Content="Назад" HorizontalAlignment="Left" VerticalAlignment="Top" Width="100" Height="30" Margin="-5,-36,0,0" Click="GoBack_Click" />
 
         <!-- Список существующих проектов -->
@@ -78,6 +28,10 @@
                     <GridView>
                         <GridViewColumn Header="ID" DisplayMemberBinding="{Binding ProjectId}" Width="50" />
                         <GridViewColumn Header="Название" DisplayMemberBinding="{Binding OrgName}" Width="150" />
+                        <GridViewColumn Header="Начало этапа 1" DisplayMemberBinding="{Binding Phase1Start}" Width="120" />
+                        <GridViewColumn Header="Конец этапа 1" DisplayMemberBinding="{Binding Phase1End}" Width="120" />
+                        <GridViewColumn Header="Начало этапа 2" DisplayMemberBinding="{Binding Phase2Start}" Width="120" />
+                        <GridViewColumn Header="Конец этапа 2" DisplayMemberBinding="{Binding Phase2End}" Width="120" />
                     </GridView>
                 </ListView.View>
             </ListView>
@@ -103,6 +57,29 @@
                     <ComboBoxItem Content="Этап 2" />
                     <ComboBoxItem Content="Оба этапа" />
                 </ComboBox>
+
+                <!-- Дата для этапов -->
+                <StackPanel>
+                    <TextBlock Text="Выберите даты для этапов (опционально)" Foreground="White" FontWeight="Bold" Margin="5"/>
+                    <!-- Этап 1 -->
+                    <StackPanel Orientation="Horizontal" Margin="5">
+                        <TextBlock Text="Дата начала Этап 1:" Foreground="White" VerticalAlignment="Center"/>
+                        <DatePicker x:Name="Phase1StartDatePicker" Margin="5"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="5">
+                        <TextBlock Text="Дата конца Этап 1:" Foreground="White" VerticalAlignment="Center"/>
+                        <DatePicker x:Name="Phase1EndDatePicker" Margin="5"/>
+                    </StackPanel>
+                    <!-- Этап 2 -->
+                    <StackPanel Orientation="Horizontal" Margin="5">
+                        <TextBlock Text="Дата начала Этап 2:" Foreground="White" VerticalAlignment="Center"/>
+                        <DatePicker x:Name="Phase2StartDatePicker" Margin="5"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="5">
+                        <TextBlock Text="Дата конца Этап 2:" Foreground="White" VerticalAlignment="Center"/>
+                        <DatePicker x:Name="Phase2EndDatePicker" Margin="5"/>
+                    </StackPanel>
+                </StackPanel>
 
                 <!-- Кнопка для назначения пользователя на проект -->
                 <Button Content="Назначить на проект" Width="180" Margin="5" Click="AssignUserToProject_Click" />
