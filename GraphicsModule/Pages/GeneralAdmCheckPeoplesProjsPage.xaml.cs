@@ -2,6 +2,8 @@
 using OxyPlot;
 using OxyPlot.Axes;
 using OxyPlot.Series;
+using OxyPlot.Utilities;
+using OxyPlot.Wpf;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -32,36 +34,36 @@ namespace GraphicsModule.Pages
             var connection = new Connection();
 
             string query = @"
-        SELECT 
-            p.id_project,
-            c.date_start,
-            c.date_end,
-            c.date1_start, 
-            c.date2_end,
-            s.status_name,
-            cl.org_name,
-            u.id_user,
-            u.name_user,
-            pu.phase1,
-            pu.phase2
-        FROM 
-            ProjectUsers pu
-        JOIN 
-            Project p ON pu.id_project = p.id_project
-        JOIN 
-            Contracts c ON p.id_contract = c.id_contract
-        JOIN 
-            Status s ON p.id_status = s.id_status
-        JOIN 
-            Organizations o ON c.id_org = o.id_org
-        JOIN 
-            Clients cl ON o.id_client = cl.id_client
-        JOIN 
-            ProjectUsers pu_all ON p.id_project = pu_all.id_project
-        JOIN 
-            Users u ON pu_all.id_user = u.id_user
-        WHERE 
-            s.status_name != 'Архивирован'";
+  SELECT 
+      p.id_project,
+      c.date_start,
+      c.date_end,
+      c.date1_start, 
+      c.date2_end,
+      s.status_name,
+      cl.org_name,
+      u.id_user,
+      u.name_user,
+      pu.phase1_start, 
+      pu.phase1_end,
+      pu.phase2_start, 
+      pu.phase2_end
+  FROM 
+      ProjectUsers pu
+  JOIN 
+      Project p ON pu.id_project = p.id_project
+  JOIN 
+      Contracts c ON p.id_contract = c.id_contract
+  JOIN 
+      Status s ON p.id_status = s.id_status
+  JOIN 
+      Organizations o ON c.id_org = o.id_org
+  JOIN 
+      Clients cl ON o.id_client = cl.id_client
+  JOIN 
+      Users u ON pu.id_user = u.id_user
+  WHERE 
+      s.status_name != 'Архивирован'";
 
             using (var conn = connection.GetConnection())
             {
@@ -95,10 +97,12 @@ namespace GraphicsModule.Pages
                             {
                                 UserId = reader.GetGuid(7),
                                 UserName = reader.GetString(8),
-                                Phase1 = reader.GetBoolean(9),
-                                Phase2 = reader.GetBoolean(10)
+                                Phase1Start = reader.IsDBNull(9) ? DateTime.MinValue : reader.GetDateTime(9),
+                                Phase1End = reader.IsDBNull(10) ? DateTime.MinValue : reader.GetDateTime(10),
+                                Phase2Start = reader.IsDBNull(11) ? DateTime.MinValue : reader.GetDateTime(11),
+                                Phase2End = reader.IsDBNull(12) ? DateTime.MinValue : reader.GetDateTime(12)
                             };
-
+                            Debug.WriteLine($"User: {teamMember.UserName}, Phase1: {teamMember.Phase1Start} - {teamMember.Phase1End}, Phase2: {teamMember.Phase2Start} - {teamMember.Phase2End}");
                             if (!projectData.TeamMembers.Any(u => u.UserId == teamMember.UserId))
                             {
                                 projectData.TeamMembers.Add(teamMember);
@@ -153,6 +157,8 @@ namespace GraphicsModule.Pages
 
             foreach (var project in filteredProjects)
             {
+                var projectIndex = filteredProjects.IndexOf(project);
+
                 var barSeries = new RectangleBarSeries
                 {
                     FillColor = OxyColors.CornflowerBlue,
@@ -161,45 +167,65 @@ namespace GraphicsModule.Pages
                     Title = project.OrganizationName
                 };
 
-                // Отображаем фазу 1, если есть данные
+                // Отображение первой фазы проекта
                 if (project.StartDate != DateTime.MinValue && project.EndDate != DateTime.MinValue)
                 {
                     var startDateDouble = DateTimeAxis.ToDouble(project.StartDate);
                     var endDateDouble = DateTimeAxis.ToDouble(project.EndDate);
-                    int projectIndex = filteredProjects.IndexOf(project);
-                    barSeries.Items.Add(new RectangleBarItem(startDateDouble, projectIndex - 0.2, endDateDouble, projectIndex + 0.2));
-                }
-                else
-                {
-                    Debug.WriteLine($"Проект {project.OrganizationName} не имеет корректных данных для фазы 1.");
+                    barSeries.Items.Add(new RectangleBarItem(startDateDouble, projectIndex - 0.4, endDateDouble, projectIndex - 0.1));
                 }
 
-                // Отображаем фазу 2, если есть данные
+                // Отображение второй фазы проекта
                 if (project.ResumeDate != DateTime.MinValue && project.ResumeEndDate != DateTime.MinValue)
                 {
-                    var resumeDateDouble = DateTimeAxis.ToDouble(project.ResumeDate);
-                    var resumeEndDateDouble = DateTimeAxis.ToDouble(project.ResumeEndDate);
-                    int projectIndex = filteredProjects.IndexOf(project);
-                    barSeries.Items.Add(new RectangleBarItem(resumeDateDouble, projectIndex - 0.2, resumeEndDateDouble, projectIndex + 0.2));
-                }
-                else
-                {
-                    Debug.WriteLine($"Проект {project.OrganizationName} не имеет корректных данных для фазы 2.");
+                    var resumeStartDouble = DateTimeAxis.ToDouble(project.ResumeDate);
+                    var resumeEndDouble = DateTimeAxis.ToDouble(project.ResumeEndDate);
+                    barSeries.Items.Add(new RectangleBarItem(resumeStartDouble, projectIndex + 0.1, resumeEndDouble, projectIndex + 0.4));
                 }
 
+                PlotModel.Series.Add(barSeries);
+
+                // Внутри каждой фазы отображаем узкие прямоугольники для членов команды
+                foreach (var teamMember in project.TeamMembers)
+                {
+                    // Фаза 1 работы участника
+                    if (teamMember.Phase1Start != DateTime.MinValue && teamMember.Phase1End != DateTime.MinValue)
+                    {
+                        var phase1StartDouble = DateTimeAxis.ToDouble(teamMember.Phase1Start);
+                        var phase1EndDouble = DateTimeAxis.ToDouble(teamMember.Phase1End);
+
+                        barSeries.Items.Add(new RectangleBarItem(phase1StartDouble, projectIndex - 0.35, phase1EndDouble, projectIndex - 0.15)
+                        {
+                            // Цвет фазы 1 работы участника
+                            Color = OxyColors.LightGreen
+                        });
+                    }
+
+                    // Фаза 2 работы участника
+                    if (teamMember.Phase2Start != DateTime.MinValue && teamMember.Phase2End != DateTime.MinValue)
+                    {
+                        var phase2StartDouble = DateTimeAxis.ToDouble(teamMember.Phase2Start);
+                        var phase2EndDouble = DateTimeAxis.ToDouble(teamMember.Phase2End);
+
+                        barSeries.Items.Add(new RectangleBarItem(phase2StartDouble, projectIndex + 0.15, phase2EndDouble, projectIndex + 0.35)
+                        {
+                            // Цвет фазы 2 работы участника
+                            Color = OxyColors.LightBlue
+                        });
+                    }
+                }
+
+                // Обработчик клика для обновления информации о проекте
                 barSeries.MouseDown += (s, e) =>
                 {
                     UpdateCompanyName(project.OrganizationName);
                     UpdateTeamList(project.TeamMembers);
                 };
-
-                PlotModel.Series.Add(barSeries);
             }
 
             ProjectTimeline.Model = PlotModel;
             ProjectTimeline.InvalidatePlot(true); // Обновляем отображение
         }
-
 
 
         private void UpdateTeamList(List<TeamMemberData> teamMembers)
