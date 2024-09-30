@@ -55,22 +55,32 @@
                     Click="ResetFilters_Click" Background="#FF3B3B" Foreground="White"/>
         </StackPanel>
 
+        <!-- Список участников -->
         <StackPanel Grid.Row="1" Grid.Column="0" Margin="10">
-            <TextBlock Text="Команды проектов:"/>
-            <ItemsControl x:Name="TeamList">
+            <TextBlock Text="Команды проектов:" Margin="0,0,0,10"/>
+
+            <!-- Добавляем отступы и разделители для удобства -->
+            <ItemsControl x:Name="TeamList" Margin="0,5,0,0">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <TextBlock Text="{Binding UserName}" Foreground="White"/>
+                        <Border BorderThickness="0,0,0,1" BorderBrush="White" Margin="0,0,0,5">
+                            <StackPanel Orientation="Vertical">
+                                <TextBlock Text="{Binding UserName}" Foreground="White" 
+                                           Margin="0,5,0,5" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </StackPanel>
 
+        <!-- Название компании -->
         <StackPanel Grid.Row="1" Grid.Column="1" Margin="10">
-            <TextBlock Text="Название компании:"/>
-            <TextBlock x:Name="CompanyName" />
+            <TextBlock Text="Название компании:" Margin="0,0,0,10"/>
+            <TextBlock x:Name="CompanyName" Foreground="White" FontSize="16" FontWeight="Bold" />
         </StackPanel>
 
+        <!-- График -->
         <oxy:PlotView x:Name="ProjectTimeline" Grid.Row="1" Grid.Column="2" Model="{Binding PlotModel}" />
     </Grid>
 </Page>

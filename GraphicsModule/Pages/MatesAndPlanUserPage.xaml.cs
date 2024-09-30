@@ -171,59 +171,73 @@ WHERE
 
         private void UpdatePlot(List<ProjectData> filteredProjects)
         {
-            PlotModel.Series.Clear();
+            PlotModel.Series.Clear(); // Очищаем старые серии
+
+            // Основной цвет для фазы 1 - приятный синий
+            OxyColor pleasantBlue = OxyColors.SkyBlue;
+
+            // Цвет для фазы 2 - приятный зеленый
+            OxyColor pleasantGreen = OxyColors.LightGreen;
+
+            // Получаем ID текущего пользователя
+            var currentUserId = Session.UserID;
 
             foreach (var project in filteredProjects)
             {
                 int projectIndex = filteredProjects.IndexOf(project);
 
-                foreach (var member in project.TeamMembers)
+                // Фильтруем только текущего пользователя
+                var currentUser = project.TeamMembers.FirstOrDefault(m => m.UserId == currentUserId);
+
+                if (currentUser != null)
                 {
-                    if (member.Phase1Start.HasValue && member.Phase1End.HasValue)
+                    // Фаза 1 текущего пользователя (отображение прямоугольника)
+                    if (currentUser.Phase1Start.HasValue && currentUser.Phase1End.HasValue)
                     {
                         var phase1Series = new RectangleBarSeries
                         {
-                            FillColor = OxyColors.Green,
+                            FillColor = pleasantBlue,  // Приятный синий цвет для фазы 1
                             StrokeColor = OxyColors.Black,
                             StrokeThickness = 1
                         };
 
-                        var phase1StartDouble = DateTimeAxis.ToDouble(member.Phase1Start.Value);
-                        var phase1EndDouble = DateTimeAxis.ToDouble(member.Phase1End.Value);
+                        var phase1StartDouble = DateTimeAxis.ToDouble(currentUser.Phase1Start.Value);
+                        var phase1EndDouble = DateTimeAxis.ToDouble(currentUser.Phase1End.Value);
 
+                        // Прямоугольник для фазы 1
                         phase1Series.Items.Add(new RectangleBarItem(phase1StartDouble, projectIndex - 0.2, phase1EndDouble, projectIndex + 0.2));
 
-                        // Добавляем событие клика на фазу 1, но привязываем его к конкретному проекту
+                        // Добавляем обработчик нажатия
                         phase1Series.MouseDown += (s, e) =>
                         {
-                            Debug.WriteLine($"Clicked on project: {project.OrganizationName}");
                             UpdateCompanyName(project.OrganizationName);
-                            UpdateTeamList(project.TeamMembers);
+                            UpdateTeamList(project.TeamMembers.Where(m => m.Phase1Start.HasValue).ToList());
                         };
 
                         PlotModel.Series.Add(phase1Series);
                     }
 
-                    if (member.Phase2Start.HasValue && member.Phase2End.HasValue)
+                    // Фаза 2 текущего пользователя (отображение прямоугольника)
+                    if (currentUser.Phase2Start.HasValue && currentUser.Phase2End.HasValue)
                     {
                         var phase2Series = new RectangleBarSeries
                         {
-                            FillColor = OxyColors.Blue,
+                            FillColor = pleasantGreen,  // Приятный зеленый цвет для фазы 2
                             StrokeColor = OxyColors.Black,
                             StrokeThickness = 1
                         };
 
-                        var phase2StartDouble = DateTimeAxis.ToDouble(member.Phase2Start.Value);
-                        var phase2EndDouble = DateTimeAxis.ToDouble(member.Phase2End.Value);
+                        var phase2StartDouble = DateTimeAxis.ToDouble(currentUser.Phase2Start.Value);
+                        var phase2EndDouble = DateTimeAxis.ToDouble(currentUser.Phase2End.Value);
 
+                        // Прямоугольник для фазы 2
                         phase2Series.Items.Add(new RectangleBarItem(phase2StartDouble, projectIndex - 0.2, phase2EndDouble, projectIndex + 0.2));
 
-                        // Добавляем событие клика на фазу 2, привязываем его к проекту
+                        // Добавляем обработчик нажатия
                         phase2Series.MouseDown += (s, e) =>
                         {
-                            Debug.WriteLine($"Clicked on project: {project.OrganizationName}");
                             UpdateCompanyName(project.OrganizationName);
-                            UpdateTeamList(project.TeamMembers);
+                            UpdateTeamList(project.TeamMembers.Where(m => m.Phase2Start.HasValue).ToList());
                         };
 
                         PlotModel.Series.Add(phase2Series);
@@ -231,9 +245,12 @@ WHERE
                 }
             }
 
+            // Обновляем график
             ProjectTimeline.Model = PlotModel;
             ProjectTimeline.InvalidatePlot(true);
         }
+
+
 
 
         private void UpdateTeamList(List<TeamMemberData> teamMembers)
@@ -339,6 +356,7 @@ WHERE
         public DateTime? Phase2End { get; set; }    // Дата конца фазы 2
         public bool Phase1 { get; set; }
         public bool Phase2 { get; set; }
+        public OxyColor Color { get; set; }
 
     }
 }

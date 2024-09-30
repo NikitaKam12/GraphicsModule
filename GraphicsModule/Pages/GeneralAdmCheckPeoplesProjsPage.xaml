@@ -55,22 +55,41 @@
                     Click="ResetFilters_Click" Background="#FF3B3B" Foreground="White"/>
         </StackPanel>
 
+        <!-- Отображение всех участников по проекту -->
         <StackPanel Grid.Row="1" Grid.Column="0" Margin="10">
-            <TextBlock Text="Команды проектов:"/>
-            <ItemsControl x:Name="TeamList">
+            <TextBlock Text="Все участники:"/>
+            <ItemsControl x:Name="TeamListBothPhases">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <TextBlock Text="{Binding UserName}" Foreground="White"/>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Rectangle Width="15" Height="15" Fill="{Binding Color}" Margin="5,0"/>
+                            <TextBlock Text="{Binding UserName}" Foreground="White" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Отображение участников выбранной фазы -->
+            <TextBlock Text="Участники выбранной фазы:"/>
+            <ItemsControl x:Name="TeamListSelectedPhase">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Rectangle Width="15" Height="15" Fill="{Binding Color}" Margin="5,0"/>
+                            <TextBlock Text="{Binding UserName}" Foreground="White" VerticalAlignment="Center"/>
+                        </StackPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </StackPanel>
 
+        <!-- Отображение названия компании -->
         <StackPanel Grid.Row="1" Grid.Column="1" Margin="10">
             <TextBlock Text="Название компании:"/>
             <TextBlock x:Name="CompanyName" />
         </StackPanel>
 
+        <!-- График -->
         <oxy:PlotView x:Name="ProjectTimeline" Grid.Row="1" Grid.Column="2" Model="{Binding PlotModel}" />
     </Grid>
 </Page>

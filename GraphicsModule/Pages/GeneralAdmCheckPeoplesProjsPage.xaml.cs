@@ -1,5 +1,6 @@
 ﻿using Npgsql;
 using OxyPlot;
+using OxyPlot.Annotations;
 using OxyPlot.Axes;
 using OxyPlot.Series;
 using OxyPlot.Utilities;
@@ -153,89 +154,166 @@ namespace GraphicsModule.Pages
 
         private void UpdatePlot(List<ProjectData> filteredProjects)
         {
-            PlotModel.Series.Clear();
+            PlotModel.Annotations.Clear(); // Очищаем старые аннотации
+            PlotModel.Series.Clear(); // Очищаем старые серии
+
+            // Список доступных цветов
+            var colors = new List<OxyColor>
+            {
+                OxyColors.LightGreen,
+                OxyColors.Goldenrod,
+                OxyColors.SandyBrown,
+                OxyColors.Turquoise,
+                OxyColors.Salmon,
+                OxyColors.Coral,
+                OxyColors.DarkKhaki
+            };
+
+            var timeAxis = (DateTimeAxis)PlotModel.Axes.FirstOrDefault(a => a is DateTimeAxis);
+            double startDateDouble = timeAxis != null ? timeAxis.ActualMinimum : DateTimeAxis.ToDouble(projects.Min(p => p.StartDate));
+            double endDateDouble = timeAxis != null ? timeAxis.ActualMaximum : DateTimeAxis.ToDouble(projects.Max(p => p.ResumeEndDate));
 
             foreach (var project in filteredProjects)
             {
                 var projectIndex = filteredProjects.IndexOf(project);
+                int participantCount = project.TeamMembers.Count;
+                double height = 0.2 + Math.Max(0, (participantCount - 2) * 0.1);
 
-                var barSeries = new RectangleBarSeries
+                var barSeriesPhase1 = new RectangleBarSeries
                 {
                     FillColor = OxyColors.CornflowerBlue,
                     StrokeColor = OxyColors.Black,
                     StrokeThickness = 1,
-                    Title = project.OrganizationName
+                    Title = project.OrganizationName + " Phase 1"
                 };
 
-                // Отображение первой фазы проекта
                 if (project.StartDate != DateTime.MinValue && project.EndDate != DateTime.MinValue)
                 {
-                    var startDateDouble = DateTimeAxis.ToDouble(project.StartDate);
-                    var endDateDouble = DateTimeAxis.ToDouble(project.EndDate);
-                    barSeries.Items.Add(new RectangleBarItem(startDateDouble, projectIndex - 0.4, endDateDouble, projectIndex - 0.1));
+                    var startDateDoublePhase1 = DateTimeAxis.ToDouble(project.StartDate);
+                    var endDateDoublePhase1 = DateTimeAxis.ToDouble(project.EndDate);
+
+                    barSeriesPhase1.Items.Add(new RectangleBarItem(startDateDoublePhase1, projectIndex - height, endDateDoublePhase1, projectIndex - 0.1));
                 }
 
-                // Отображение второй фазы проекта
+                PlotModel.Series.Add(barSeriesPhase1);
+
+                var barSeriesPhase2 = new RectangleBarSeries
+                {
+                    FillColor = OxyColors.CornflowerBlue,
+                    StrokeColor = OxyColors.Black,
+                    StrokeThickness = 1,
+                    Title = project.OrganizationName + " Phase 2"
+                };
+
                 if (project.ResumeDate != DateTime.MinValue && project.ResumeEndDate != DateTime.MinValue)
                 {
                     var resumeStartDouble = DateTimeAxis.ToDouble(project.ResumeDate);
                     var resumeEndDouble = DateTimeAxis.ToDouble(project.ResumeEndDate);
-                    barSeries.Items.Add(new RectangleBarItem(resumeStartDouble, projectIndex + 0.1, resumeEndDouble, projectIndex + 0.4));
+
+                    barSeriesPhase2.Items.Add(new RectangleBarItem(resumeStartDouble, projectIndex - height, resumeEndDouble, projectIndex - 0.1));
                 }
 
-                PlotModel.Series.Add(barSeries);
+                PlotModel.Series.Add(barSeriesPhase2);
 
-                // Внутри каждой фазы отображаем узкие прямоугольники для членов команды
+                double verticalOffset = 0.05;
+                int colorIndex = 0;
+
                 foreach (var teamMember in project.TeamMembers)
                 {
-                    // Фаза 1 работы участника
+                    var teamMemberColor = colors[colorIndex % colors.Count];
+                    teamMember.Color = teamMemberColor;
+                    colorIndex++;
+
                     if (teamMember.Phase1Start != DateTime.MinValue && teamMember.Phase1End != DateTime.MinValue)
                     {
                         var phase1StartDouble = DateTimeAxis.ToDouble(teamMember.Phase1Start);
                         var phase1EndDouble = DateTimeAxis.ToDouble(teamMember.Phase1End);
+                        double width = phase1EndDouble - phase1StartDouble;
 
-                        barSeries.Items.Add(new RectangleBarItem(phase1StartDouble, projectIndex - 0.35, phase1EndDouble, projectIndex - 0.15)
+                        // Полоска для Фазы 1
+                        barSeriesPhase1.Items.Add(new RectangleBarItem(phase1StartDouble, projectIndex - height + verticalOffset, phase1EndDouble, projectIndex - height + verticalOffset + 0.05)
                         {
-                            // Цвет фазы 1 работы участника
-                            Color = OxyColors.LightGreen
+                            Color = teamMemberColor
                         });
+
+                        PlotModel.Annotations.Add(new TextAnnotation
+                        {
+                            Text = teamMember.UserName,
+                            TextPosition = new DataPoint((phase1StartDouble + phase1EndDouble) / 2, projectIndex - height + verticalOffset),
+                            StrokeThickness = 0,
+                            TextHorizontalAlignment = OxyPlot.HorizontalAlignment.Center,
+                            FontSize = CalculateDynamicFontSize(width),
+                            TextColor = OxyColors.Black
+                        });
+
+                        verticalOffset += 0.05;
                     }
 
-                    // Фаза 2 работы участника
                     if (teamMember.Phase2Start != DateTime.MinValue && teamMember.Phase2End != DateTime.MinValue)
                     {
                         var phase2StartDouble = DateTimeAxis.ToDouble(teamMember.Phase2Start);
                         var phase2EndDouble = DateTimeAxis.ToDouble(teamMember.Phase2End);
+                        double width = phase2EndDouble - phase2StartDouble;
 
-                        barSeries.Items.Add(new RectangleBarItem(phase2StartDouble, projectIndex + 0.15, phase2EndDouble, projectIndex + 0.35)
+                        // Полоска для Фазы 2
+                        barSeriesPhase2.Items.Add(new RectangleBarItem(phase2StartDouble, projectIndex - height + verticalOffset, phase2EndDouble, projectIndex - height + verticalOffset + 0.05)
                         {
-                            // Цвет фазы 2 работы участника
-                            Color = OxyColors.LightBlue
+                            Color = teamMemberColor
                         });
+
+                        PlotModel.Annotations.Add(new TextAnnotation
+                        {
+                            Text = teamMember.UserName,
+                            TextPosition = new DataPoint((phase2StartDouble + phase2EndDouble) / 2, projectIndex - height + verticalOffset),
+                            StrokeThickness = 0,
+                            TextHorizontalAlignment = OxyPlot.HorizontalAlignment.Center,
+                            FontSize = CalculateDynamicFontSize(width),
+                            TextColor = OxyColors.Black
+                        });
+
+                        verticalOffset += 0.05;
                     }
                 }
 
-                // Обработчик клика для обновления информации о проекте
-                barSeries.MouseDown += (s, e) =>
+                barSeriesPhase1.MouseDown += (s, e) =>
                 {
                     UpdateCompanyName(project.OrganizationName);
-                    UpdateTeamList(project.TeamMembers);
+                    UpdateTeamListBothPhases(project.TeamMembers);  // Обновляем участников обеих фаз
+                    UpdateTeamListSelectedPhase(project.TeamMembers.Where(t => t.Phase1Start != DateTime.MinValue).ToList());  // Участники фазы 1
+                };
+
+                barSeriesPhase2.MouseDown += (s, e) =>
+                {
+                    UpdateCompanyName(project.OrganizationName);
+                    UpdateTeamListBothPhases(project.TeamMembers);  // Обновляем участников обеих фаз
+                    UpdateTeamListSelectedPhase(project.TeamMembers.Where(t => t.Phase2Start != DateTime.MinValue).ToList());  // Участники фазы 2
                 };
             }
 
             ProjectTimeline.Model = PlotModel;
-            ProjectTimeline.InvalidatePlot(true); // Обновляем отображение
+            ProjectTimeline.InvalidatePlot(true);
         }
 
-
-        private void UpdateTeamList(List<TeamMemberData> teamMembers)
+        private void UpdateTeamListBothPhases(List<TeamMemberData> teamMembers)
         {
-            TeamList.ItemsSource = teamMembers;
+            TeamListBothPhases.ItemsSource = teamMembers;  // Участники всех фаз
+        }
+
+        private void UpdateTeamListSelectedPhase(List<TeamMemberData> teamMembers)
+        {
+            TeamListSelectedPhase.ItemsSource = teamMembers;  // Участники выбранной фазы
         }
 
         private void UpdateCompanyName(string organizationName)
         {
             CompanyName.Text = organizationName;
+        }
+
+        private double CalculateDynamicFontSize(double timeDifference)
+        {
+            double minSize = 10;
+            double maxSize = 14;
+            return Math.Max(minSize, Math.Min(maxSize, timeDifference / 15));
         }
 
         private void LoadComboBoxData()
@@ -249,7 +327,6 @@ namespace GraphicsModule.Pages
             SortByYear.ItemsSource = Years;
         }
 
-        // Метод для применения комбинированной сортировки
         private void ApplyFilters()
         {
             var filteredProjects = projects.AsEnumerable();
@@ -272,25 +349,21 @@ namespace GraphicsModule.Pages
             UpdatePlot(filteredProjects.ToList());
         }
 
-        // Комбинированная сортировка при изменении компании
         private void SortByCompany_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             ApplyFilters();
         }
 
-        // Комбинированная сортировка при изменении месяца
         private void SortByMonth_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             ApplyFilters();
         }
 
-        // Комбинированная сортировка при изменении года
         private void SortByYear_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             ApplyFilters();
         }
 
-        // Сброс фильтров
         private void ResetFilters_Click(object sender, RoutedEventArgs e)
         {
             SortByCompany.SelectedItem = null;
